@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import org.fxmisc.flowless.VirtualizedScrollPane?>
+<?import org.fxmisc.richtext.CodeArea?>
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/14"
+            fx:controller="gui.Controller">
+    <VBox AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0"
+          AnchorPane.topAnchor="0.0">
+        <HBox>
+            <MenuBar>
+                <Menu text="Arquivo">
+                    <MenuItem onAction="#abrir_arquivo_dialogo" text="Abrir"/>
+                    <MenuItem onAction="#dialogo_novo_arquivo" text="Novo"/>
+                    <MenuItem fx:id="saveMenuItem" onAction="#acao_salvar" text="Salvar"/>
+                    <MenuItem fx:id="saveAsMenuItem" onAction="#salvar_como_mensagem" text="Salvar como..."/>
+                    <MenuItem fx:id="exitProgramItem" onAction="#sair_programa" text="Sair"/>
+                </Menu>
+                <Menu text="Edição">
+                    <MenuItem fx:id="cutMenuItem" text="Recortar" onAction="#cortar_selecao"/>
+                    <MenuItem fx:id="copyMenuItem" text="Copiar" onAction="#copiar_selecao"/>
+                    <MenuItem fx:id="pasteMenuItem" text="Colar" onAction="#colar"/>
+                </Menu>
+                <Menu text="Compilação">
+                    <MenuItem text="Compilar" onAction="#compilar_programa"/>
+                    <MenuItem fx:id="runMenuItem" disable="false" text="Executar" onAction="#rodar"/>
+                </Menu>
+            </MenuBar>
+        </HBox>
+        <HBox>
+            <ToolBar>
+                <Button fx:id="newBtn" onAction="#dialogo_novo_arquivo">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/novo.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Button fx:id="openBtn" onAction="#abrir_arquivo_dialogo">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/abrir.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Button fx:id="saveBtn" onAction="#acao_salvar">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/salvar.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Separator/>
+                <Button fx:id="cutBtn" onAction="#cortar_selecao">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/recortar.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Button fx:id="copyBtn" onAction="#copiar_selecao">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/copiar.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Button fx:id="pasteBtn" onAction="#colar">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/colar.png"/>
+                        </ImageView>
+                    </graphic>
+                </Button>
+                <Separator/>
+                <Button fx:id="buildBtn" onAction="#compilar_programa">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/build.png"/>
+                        </ImageView>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Compilar"/>
+                    </tooltip>
+                </Button>
+                <Button fx:id="runBtn" onAction="#rodar" disable="false">
+                    <graphic>
+                        <ImageView>
+                            <Image url="@icones/executar.png"/>
+                        </ImageView>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Executar"/>
+                    </tooltip>
+                </Button>
+            </ToolBar>
+        </HBox>
+        <HBox VBox.vgrow="ALWAYS">
+            <VBox VBox.vgrow="ALWAYS"  HBox.hgrow="ALWAYS">
+                <Label>Entrada</Label>
+                <HBox VBox.vgrow="ALWAYS" onKeyReleased="#conteudo_arquivo_mudanca">
+                    <VirtualizedScrollPane HBox.hgrow="ALWAYS">
+                        <content>
+                            <CodeArea fx:id="inputTextArea"/>
+                        </content>
+                    </VirtualizedScrollPane>
+                </HBox>
+                <Label>Saída</Label>
+                <HBox>
+                    <TextArea fx:id="messageTextArea" editable="false" HBox.hgrow="ALWAYS"/>
+                </HBox>
+                <Label text="Console de entrada" />
+                <HBox>
+                    <children>
+                        <TextArea fx:id="consoleInput" disable="true" prefHeight="0.0" HBox.hgrow="ALWAYS"/>
+                    </children>
+                </HBox>
+                <HBox>
+                    <Label fx:id="statusBar">Status ...</Label>
+                </HBox>
+                <HBox>
+                    <Label fx:id="lineColLabel">Linha/Coluna</Label>
+                </HBox>
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                </padding>
+            </VBox>
+
+            <VBox VBox.vgrow="ALWAYS">
+                <HBox VBox.vgrow="ALWAYS">
+                  <TableView fx:id="instructionTable" HBox.hgrow="NEVER" VBox.vgrow="ALWAYS">
+                      <columns>
+                          <TableColumn fx:id="instructionNumberCol" text="Número"/>
+                          <TableColumn fx:id="instructionMnemonicCol" text="Código"/>
+                          <TableColumn fx:id="instructionParameterCol" text="Parametro"/>
+                      </columns>
+                     <HBox.margin>
+                          <Insets left="10.0" bottom="10.0" right="10.0"/>
+                     </HBox.margin>
+                  </TableView>
+               </HBox>
+           </VBox>
+       </HBox>
+   </VBox>
+ </AnchorPane>

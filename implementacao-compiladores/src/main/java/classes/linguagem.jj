@@ -1,0 +1,1220 @@
+
+
+options {
+    STATIC = false;
+    LOOKAHEAD = 1;
+    DEBUG_LOOKAHEAD = true;
+    JAVA_UNICODE_ESCAPE = true;
+    DEBUG_PARSER = true;
+}
+
+PARSER_BEGIN(Linguagem)
+package classes;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.lang.StringBuilder;
+import java.util.Arrays;
+
+import recovery.RecoverySet;
+
+public class Linguagem {
+   private StringBuilder resultadoLexico = new StringBuilder();
+   static List<ErrorStruct> errosSintaticos = new ArrayList<ErrorStruct>();
+   public int contParserError = 0;
+   public int contErroLexico = 0;
+   boolean debug_recovery = false;
+   Boolean eof = false;
+   public Acoes acaoSemantica = new Acoes();
+
+
+   public void leituraDeTokens()  {
+       List<Integer> palavras_reservadas = new ArrayList(Arrays.asList(
+            DO,THIS,BODY,DESCRIPTION,DECLARATION,TYPE,IS,CONSTANT,AND,VARIABLE,AS,INTEGER,REAL,STRING,LOGIC,DESIGNATE,READ,WRITE,ALL,AVALIATE,TRUE,UNTRUE,RESULT,REPEAT
+       ));
+       List<Integer> simbolos_especiais = new ArrayList(Arrays.asList(
+            ABRECOLCHETE,FECHACOLCHETE,ABRECHAVES,FECHACHAVES,PONTO,VIRGULA,ATRIBUI,MAIS,MENOS,VEZES,DIVISAO,POTENCIA,RESTODIVISAO,RESTODIVISAOINTEIRA,IGUAL,DIFERENTE,MENOR,MAIOR,MENORIGUAL,MAIORIGUAL,E,OU,NAO,ABREPARENTESES,FECHAPARENTESES
+       ));
+       try {
+           Token t = null;
+           t = getNextToken();
+           if (t.kind == EOF) return;
+           if (palavras_reservadas.contains(t.kind)){}else
+           if (t.kind == IDENTIFICADOR){}else
+           if(t.kind == CONSTANTE_LITERAL){}else
+           if(t.kind == NUMERO_INTEIRO){}else
+           if(t.kind == NUMERO_REAL){}else
+           if(simbolos_especiais.contains(t.kind)){}else
+           if(t.kind == SIMBOLOS_INVALIDOS){
+               contErroLexico++;
+               resultadoLexico.append("Erro: '" + t.image + " | Tipo: <SIMBOLOS_INVALIDOS>  |  " + "ID: " +  t.kind + " | Linha: '" + t.beginLine + "', Coluna: '" + t.beginColumn + "'\n");
+           }else if(t.kind == LITERAL_INVALIDA){
+               contErroLexico++;
+               resultadoLexico.append("Erro: '" + t.image + " | Tipo: <LITERAL_INVALIDA>  |  " + "ID: " +  t.kind + " | Linha: '" + t.beginLine + "', Coluna: '" + t.beginColumn + "'\n");
+           }else if(t.kind == NUMERO_INTEIRO_INVALIDO){
+                contErroLexico++;
+                resultadoLexico.append("Erro: '" + t.image + " | Tipo: <NUMERO_INTEIRO_INVALIDO>  |  " + "ID: " +  t.kind + " | Linha: '" + t.beginLine + "', Coluna: '" + t.beginColumn + "'\n");
+           }else if(t.kind == NUMERO_REAL_INVALIDO){
+               contErroLexico++;
+                resultadoLexico.append("Erro: '" + t.image + " | Tipo: <NUMERO_REAL_INVALIDO>  |  " + "ID: " +  t.kind + " | Linha: '" + t.beginLine + "', Coluna: '" + t.beginColumn + "'\n");
+           }
+
+           else{
+               contErroLexico++;
+               resultadoLexico.append("Erro: '" + t.image + "] | Tipo: <IDENTIFICADOR_INVALIDO>  |  " + "ID: " +  t.kind + " | Linha: '" + t.beginLine + "', Coluna: '" + t.beginColumn + "'\n");
+           }
+           leituraDeTokens();
+       }catch(Error erro){
+           resultadoLexico.append("Erro: " + erro.getMessage() + "\n");
+           leituraDeTokens();
+       }
+   }
+
+   public String getTokens(String args[], String textoParaAnalisar) {
+       Linguagem linguagem;
+        // Verifica os argumentos para determinar como obter a entrada
+       if(args.length == 0){
+           java.io.InputStream targetStream = new java.io.ByteArrayInputStream(textoParaAnalisar.getBytes());
+           linguagem = new classes.Linguagem(targetStream);
+       }else if(args.length == 1){
+           try{
+               linguagem = new Linguagem(new java.io.FileInputStream(args[0]));
+           }catch(java.io.FileNotFoundException e){
+               System.err.println(args[0] + " não foi encontrado." );
+               System.err.println(e);
+               return args[0] + " não foi encontrado.";
+           }
+       }else{
+           System.out.println("Use:\njava Linguagem2023 < inputFile");
+           System.out.println("ou java Linguagem2023 inputFile");
+           return "Use:java Linguagem2023 < inputFile";
+       }
+       // (CONTEUDO LIVRO) ANALISE SINTATICA
+       // Realiza a análise léxica e retorna o resultado como uma string
+       this.debug_recovery = true;
+       this.leituraDeTokens();
+       resultadoLexico.append("<EOF>");
+       return resultadoLexico.toString();
+   }
+
+   public String getResultadoLexico(){
+       return resultadoLexico.toString();
+   }
+
+   //CONTEUDO LIVRO
+    static public String im(int x)
+    {
+        int k;
+        String s;
+        s = tokenImage[x];
+        k = s.lastIndexOf("\"");
+        try {s = s.substring(1,k);}
+        catch (StringIndexOutOfBoundsException e)
+        {}
+        return s;
+    }
+
+    public void consumeUntil(RecoverySet g, ParseException e, String met) throws  ParseException {
+         Token tok;
+         if (g == null){
+             throw e;
+         }
+         System.out.println("********* " + met);
+         tok = getToken(1);
+         while (!eof){
+
+             if (g.contains(tok.kind)) {
+                 System.out.println("Encontrado token de sincronizacao: " + tok.image);
+                 break;
+             }
+             getNextToken();
+             tok = getToken(1);
+             if (tok.kind == EOF && !g.contains(EOF)){
+                 eof = true;
+             }
+         }
+        System.out.println(e.getMessage());
+        this.contParserError++;
+     }
+
+    public String analisarSintatica(String args[], String textToAnalyze) throws ParseException, ParseEOFException  {
+        Linguagem linguagem = this.readInput(args, textToAnalyze);
+        StringBuilder logSaida = new StringBuilder("");
+        errosSintaticos = new ArrayList<ErrorStruct>();
+        // Realiza a análise léxica e começa a análise sintática
+        this.leituraDeTokens();
+        resultadoLexico.append("<EOF>");
+
+        try {
+            linguagem.begin_program();
+        }catch (ParseException ex) {
+            return ex.getMessage().toString();
+        }
+        // Se houver erros sintáticos, registra e retorna detalhes sobre eles
+        if(Linguagem.errosSintaticos.size() > 0){
+             logSaida.append("Erros sintaticos encontrados :" + errosSintaticos.size() + "\n");
+             for (ErrorStruct err: errosSintaticos){
+                 logSaida.append(err.getMsg() + "\t\t");
+                 logSaida.append("Esperado:" + err.expected());
+                 logSaida.append("Linha: " + err.getError().currentToken.beginLine);
+                 logSaida.append("; Coluna: " + err.getError().currentToken.endColumn + "\n");
+             }
+        }
+        linguagem = null;
+        return logSaida.toString();
+    }
+
+    private Linguagem readInput(String args[], String textToAnalyze) {
+        Linguagem sintatico = null;
+        // Verifica os argumentos para determinar como obter a entrada
+        if(args.length == 0){
+            java.io.InputStream targetStream = new java.io.ByteArrayInputStream(textToAnalyze.getBytes());
+            sintatico = new Linguagem(targetStream);
+        }
+        else if(args.length == 1){
+            try{
+                sintatico = new Linguagem(new java.io.FileInputStream(args[0]));
+            }
+            catch(java.io.FileNotFoundException e){
+                System.err.println(args[0] + " was not found." );
+                System.err.println(e);
+            }
+        }
+        else{
+            System.out.println("Use:\njava Sintatico < inputFile");
+            System.out.println("or java Sintatico inputFile");
+        }
+        return sintatico;
+    }
+
+    public String errorListToString(String message, List<String> errors) {
+        StringBuilder sb = new StringBuilder(message);
+        System.out.println("tamanho da lista de erros:  " + errors.size());
+        sb.append(String.format(" : %s", errors.size())).append("\u005cn");
+        for (String s : errors) {
+            sb.append(s).append("\u005cn");
+        }
+        return sb.toString();
+    }
+}
+
+
+PARSER_END(Linguagem)
+
+SKIP:
+{
+  " "
+| "\r"
+| "\t"
+| "\n"
+}
+
+//COMENTÁRIO DE LINHA
+SKIP:
+{
+    "//": COMENTARIO_LINHA
+}
+<COMENTARIO_LINHA> SKIP:
+{
+        <["\n" , "\r"]> : DEFAULT       //quando encontrar o "\n" ou o "\r" retorna ao estado normal
+    |   <~[]>
+}
+
+//COMENTÁRIO DE MULTIPLAS LINHAS
+
+SKIP:
+{
+    "/*" : COMENTARIO_BLOCO
+}
+<COMENTARIO_BLOCO> SKIP:
+{
+        "*/" : DEFAULT
+    |   <~[]>
+}
+
+
+//LITERAIS
+TOKEN : {
+
+    < CONSTANTE_LITERAL :  "\"" (~["\"","\n","\r"])* "\""  |  "'" (~["'","\n","\r"])* "'"  >
+
+}
+
+//PALAVRAS RESERVADAS
+
+
+TOKEN [IGNORE_CASE]:{
+    <DO: "do">
+   |<THIS: "this">
+   |<BODY: "body">
+      | <DESCRIPTION:"description">
+      | <DECLARATION: "declaration">
+      | <TYPE:"type">
+      | <IS:"is">
+      | <CONSTANT:"constant">
+      | <AND:"and">
+      | <VARIABLE:"variable">
+      | <AS:"as">
+      | <INTEGER:"integer">
+      | <REAL:"real">
+      | <STRING:"string">
+      | <LOGIC:"logic">
+      | <DESIGNATE:"designate">
+      | <READ:"read">
+      | <WRITE:"write">
+      | <ALL:"all">
+      | <AVALIATE:"avaliate">
+      | <TRUE:"true">
+      | <UNTRUE:"untrue">
+      | <RESULT:"result">
+      | <REPEAT:"repeat">
+
+}
+
+
+//SIMBOLOS ESPECIAIS
+
+ TOKEN:{
+
+       <ABRECOLCHETE:  "[">
+       |<FECHACOLCHETE: "]">
+       | <ABRECHAVES:"{">
+       | <FECHACHAVES:"}">
+       | <PONTO:".">
+       | <VIRGULA:",">
+       | <ATRIBUI:"=">
+       | <MAIS:"+">
+       | <MENOS:"-">
+       | <VEZES:"*">
+       | <DIVISAO:"/">
+       | <POTENCIA:"**">
+       | <RESTODIVISAO:"%">
+       | <RESTODIVISAOINTEIRA:"%%">
+       | <IGUAL:"==">
+       | <DIFERENTE:"!=">
+       | <MENOR:"<<">
+       | <MAIOR:">>">
+       | <MENORIGUAL:"<<=">
+       | <MAIORIGUAL:">>=">
+       | <E:"&">
+       | <OU:"|">
+       | <NAO:"!">
+       | <ABREPARENTESES: "(">
+       | <FECHAPARENTESES: ")">
+
+ }
+//TOKEN DINAMICO
+TOKEN : {
+        < #LETRA_MINUSCULA: ["a"-"z"] >
+    |   < #LETRA_MAIUSCULA: ["A"-"Z"]>
+    |   < #LETRA: ["a"-"z","A"-"Z"]>
+    |   < #DIGITO: ["0"-"9"] >
+    |   < #UNDERLINE: "_" >
+
+}
+
+
+
+//IDENTIFICADORES
+
+TOKEN : {
+
+     <IDENTIFICADOR: <LETRA_MAIUSCULA>  (<I>)* >
+        |<#I: ((<UNDERLINE><I1>) | (<I1>) )?>
+        |<#I1: (<LETRA>)+ | (<DIGITO>)(<DIGITO>)?<I2> | <I2> >
+        |<#I2: <LETRA> >
+
+
+}
+
+//NUMEROS
+TOKEN : {
+        < NUMERO_INTEIRO: <DIGITO> (<DIGITO>)? (<DIGITO>)? >                  // 1 a 3 digitos
+    |   < #NUMERO_REAL_CASAS_DECIMAIS: <DIGITO> (<DIGITO>)? (<DIGITO>)? >      // 1 A 3 digitos
+    |   < NUMERO_REAL:   <NUMERO_INTEIRO> (<DIGITO>)? (<DIGITO>)? "." <NUMERO_REAL_CASAS_DECIMAIS> >
+}
+
+
+
+
+//IDENTIDICADOR INVÁLIDO
+TOKEN: {
+   < IDENTIFICADOR_INVALIDO : ((<LETRA_MINUSCULA> | <UNDERLINE> | ((<DIGITO>)+(<LETRA>|<UNDERLINE>))) (<LETRA>|<UNDERLINE>|<DIGITO>)* )
+                             | <LETRA_MAIUSCULA> (<LETRA> | <UNDERLINE> | <DIGITO> )* (<UNDERLINE> (<UNDERLINE>)+ | <DIGITO><DIGITO>(<DIGITO>)+)+  (<LETRA> | <UNDERLINE> | <DIGITO> )*
+                             | <LETRA_MAIUSCULA> (<LETRA> | <UNDERLINE> | <DIGITO> )* <DIGITO> >
+}
+//CONSTANTE LITERAL INVÁLIDA
+TOKEN: {
+    <LITERAL_INVALIDA: ((~["\"","\n", "\r", " "])*"\""(~["\"","\n", "\r", " "])*) | ((~["'","\"","\n", "\r", " "])*"'"(~["'","\"","\n", "\r", " "])*)>
+
+}
+
+//NÚMERO INTEIRO INVÁLIDO
+TOKEN: {
+    <NUMERO_INTEIRO_INVALIDO : <DIGITO> <DIGITO> <DIGITO> (<DIGITO>)+ >
+}
+
+//NÚMERO REAL INVÁLIDO
+TOKEN: {
+  <NUMERO_REAL_INVALIDO:
+         (<DIGITO> <DIGITO> <DIGITO> <DIGITO> <DIGITO> (<DIGITO>)+ "." <NUMERO_REAL_CASAS_DECIMAIS>)                 // 6 casas inteiras ou +
+                 |    (<DIGITO> <DIGITO> <DIGITO> <DIGITO> <DIGITO> (<DIGITO>)+ "." <NUMERO_REAL_CASAS_DECIMAIS> (<DIGITO>)+)     // 6 casas inteiras ou + e com 4 casas decimais ou +
+                 |    (<DIGITO> (<DIGITO>)? (<DIGITO>)? (<DIGITO>)? (<DIGITO>)? "." <NUMERO_REAL_CASAS_DECIMAIS> (<DIGITO>)+)     // Até 5 casas inteiras e com + de 3 casas decimais
+  >
+}
+
+// SÍMBOLOS NÃO RECONHECIDOS
+TOKEN: {
+    <SIMBOLOS_INVALIDOS:
+     (~ ["a"-"z","A"-"Z",
+        "0"-"9",
+        "_",
+        "[",
+        "]",
+        "{",
+        "}",
+        ".",
+        ",",
+        "=",
+        "+",
+        "-",
+        "*",
+        "/",
+        "*",
+        "%",
+        "=",
+        "!",
+        "<",
+        ">",
+        "&",
+        "|",
+        "(",
+        ")",
+        " ",
+        "\t",
+        "\n",
+        "\r",
+        "\f"
+            ])+>
+
+}
+
+//COMENTARIO BLOCO NÃO FINALIZADO
+
+//TOKEN: {
+  //<COMENTARIO_BLOCO_ERRO: "/*" (~[])* (~["*"]~["/"]) >
+  //<COMENTARIO_BLOCO_ERRO: "/*" (~[])* ("*/")>
+  //<COMENTARIO_BLOCO_ERRO: "/*" (~"*/")* >
+//}
+
+void begin_program() throws ParseException, ParseEOFException : {
+ RecoverySet r = new RecoverySet(EOF);
+ } {
+    try {
+        [ programa(r) ] <EOF>
+    }catch (ParseException e){
+        consumeUntil(r, e, "begin_program");
+        errosSintaticos.add(new ErrorStruct("ERRO: Forma geral do programa inválida", e));
+    }
+}
+
+void definicao_programa(RecoverySet g) throws ParseException, ParseEOFException: {}
+{
+    try {
+        <DO> <THIS> <IDENTIFICADOR> {acaoSemantica.a1(getToken(0));} <ABRECOLCHETE> <FECHACOLCHETE>
+    } catch (ParseException e) {
+         consumeUntil(g, e, "definicao_programa");
+         errosSintaticos.add(new ErrorStruct("ERRO: Definição do programa inválida", e));
+     }
+}
+
+void corpo_programa(RecoverySet g) throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+}
+{
+    try {
+        <BODY> <ABRECOLCHETE> lista_de_comandos(f1) <FECHACOLCHETE> //{acaoSemantica.a2();}
+    } catch(ParseException e) {
+        consumeUntil(g, e, "body");
+        errosSintaticos.add(new ErrorStruct("ERRO: Definição do corpo do programa inválido", e));
+    }
+}
+
+void programa(RecoverySet g) throws ParseException, ParseEOFException:
+{
+    RecoverySet body = new RecoverySet(BODY);
+    RecoverySet decl = new RecoverySet(DECLARATION);
+    RecoverySet body_decl = decl.union(body);
+    RecoverySet rs_description = new RecoverySet(DESCRIPTION);
+    RecoverySet description_eof = g.union(rs_description);
+}
+{
+    try {
+        definicao_programa(body_decl)
+        declaracao_de_tipo_enumerado(body_decl)
+        declaracao_de_constantes_e_variaveis(body)
+        corpo_programa(description_eof)
+        descricao(g) {acaoSemantica.a2();}
+    } catch (ParseException e) {
+        consumeUntil(g, e, "programa");
+    }
+}
+
+void descricao(RecoverySet g) throws ParseException, ParseEOFException : {}
+{
+    try
+    {
+        (<DESCRIPTION> <CONSTANTE_LITERAL>)?
+    }catch(ParseException e){
+        consumeUntil(g, e, "descricao");
+        errosSintaticos.add(new ErrorStruct("ERRO:  Descrição inválida", e));
+    }
+}
+
+void lista_de_comandos(RecoverySet g) throws ParseException, ParseEOFException:
+{
+    RecoverySet lista_com = First.lista_de_comandos;
+}
+{
+    try{
+        (
+            comando_de_atribuicao(lista_com)
+            | comando_entrada_de_dados(lista_com)
+            | comando_saida_de_dados(lista_com)
+            | comando_de_selecao(lista_com)
+            | comando_de_repeticao(lista_com)
+        )+
+    }catch(ParseException e){
+        consumeUntil(g, e, "lista_de_comandos");
+        errosSintaticos.add(new ErrorStruct("ERRO: Lista de comandos e/ou comando inválido", e));
+
+    }
+}
+
+/*void lista_de_comandos2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+   try{
+         (comando(g)lista_de_comandos2(g))?
+   }catch(ParseException e){
+        consumeUntil(g, e, "lista_de_comandos2");
+        errosSintaticos.add(new ErrorStruct("ERRO: Lista de comandos e/ou comando", e));
+   }
+}
+
+void comando(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        comando_de_atribuicao(g) | comando_entrada_de_dados(g) | comando_saida_de_dados(g) | comando_de_selecao(g) | comando_de_repeticao(g)
+    }catch(ParseException e){
+        consumeUntil(g, e, "comando");
+        errosSintaticos.add(new ErrorStruct("ERRO: Escolha do tipo de comando", e));
+}
+}*/
+
+void declaracao_de_tipo_enumerado(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+ }
+{
+    try{
+        (LOOKAHEAD(2)<DECLARATION> <TYPE> <ABRECOLCHETE> varios_identificador_is(f1) <FECHACOLCHETE> )?
+    }catch(ParseException e){
+        consumeUntil(g, e, "declaracao_de_tipo_enumerado");
+        errosSintaticos.add(new ErrorStruct("ERRO: Declaração de tipo enumerado inválido", e));
+
+    }
+}
+
+void lista_de_identificadores_tipo_enumerado(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        <IDENTIFICADOR>{acaoSemantica.a4(getToken(0));} (<VIRGULA> lista_de_identificadores_tipo_enumerado(g))?
+    }catch(ParseException e){
+        consumeUntil(g, e, "lista_de_identificadores");
+        errosSintaticos.add(new ErrorStruct("ERRO: Listagem dos identificadores e/ou identificador incorreto (Identificadores tipo enumerado)", e));
+
+    }
+}
+
+void lista_de_identificadores_constantes(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        <IDENTIFICADOR>{acaoSemantica.a9(getToken(0));} (<VIRGULA> lista_de_identificadores_constantes(g))?
+    }catch(ParseException e){
+        consumeUntil(g, e, "lista_de_identificadores");
+        errosSintaticos.add(new ErrorStruct("ERRO: Listagem dos identificadores e/ou identificador incorreto (Identificadores de constantes)", e));
+
+    }
+}
+
+/*void lista_de_identificadores2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        (<VIRGULA> lista_de_identificadores(g))?
+    }catch(ParseException e){
+        consumeUntil(g, e, "lista_de_identificadores2");
+        errosSintaticos.add(new ErrorStruct("ERRO: Lista de identificadores e/ou identificador", e));
+
+    }
+}*/
+
+void varios_identificador_is(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHACHAVES);
+}
+{
+    try{
+        <IDENTIFICADOR> {acaoSemantica.a3(getToken(0));}<IS> <ABRECHAVES> lista_de_identificadores_tipo_enumerado(f1) <FECHACHAVES> <PONTO> varios_identificador_is2(g)
+    }catch(ParseException e){
+             consumeUntil(g, e, "varios_identificador_is");
+             errosSintaticos.add(new ErrorStruct("ERRO: Identificador (declaração de tipo enumerado) inválido", e));
+     }
+
+}
+
+void varios_identificador_is2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        (varios_identificador_is(g) )?
+    }catch(ParseException e){
+        consumeUntil(g, e, "varios_identificador_is2");
+        errosSintaticos.add(new ErrorStruct("ERRO: Listagem para mais de um Identificador (declaração de tipo enumerado) inválido", e));
+
+    }
+}
+
+void declaracao_de_constantes_e_variaveis(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+ }
+{
+    try{
+        (<DECLARATION> <CONSTANT> <AND> <VARIABLE> <ABRECOLCHETE> ordem_constantes_e_variaveis(f1) <FECHACOLCHETE> )?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "declaracao_de_constantes_e_variaveis");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Declaração de constantes e variaveis inválidas", e));
+
+          }
+}
+
+void ordem_constantes_e_variaveis(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+        <AS> ordem(g)
+
+    }catch (ParseException e) {
+           consumeUntil(g, e, "ordem_constantes_e_variaveis");
+           errosSintaticos.add(new ErrorStruct("ERRO: 'as' incorreto e/ou faltando declarar ordem ('constant'/'variable')", e));
+    }
+}
+void ordem(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+        <CONSTANT>{acaoSemantica.a5();} c(g) | <VARIABLE> {acaoSemantica.a8();} v(g)
+
+    }catch(ParseException e) {
+         consumeUntil(g, e, "ordem");
+         errosSintaticos.add(new ErrorStruct("ERRO: Ordem da declaração de constantes e variaveis inválida", e));
+    }
+}
+
+void c(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+        constantes(g) c2(g)
+
+    }catch(ParseException e) {
+                     consumeUntil(g, e, "c");
+                     errosSintaticos.add(new ErrorStruct("ERRO: Declaração de constantes inválida", e));
+              }
+}
+
+void c2(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+       (<AS> <VARIABLE> {acaoSemantica.a8();}  variaveis(g) )?
+
+    }catch(ParseException e) {
+                     consumeUntil(g, e, "c2");
+                     errosSintaticos.add(new ErrorStruct("ERRO: Declaração variaveis inválida (dentro escopo de constantes)", e));
+              }
+}
+
+void v(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+       variaveis(g) v2(g)
+
+    }catch(ParseException e) {
+                     consumeUntil(g, e, "v");
+                     errosSintaticos.add(new ErrorStruct("ERRO: Declaração variaveis inválida", e));
+              }
+}
+
+void v2(RecoverySet g) throws ParseException, ParseEOFException:{}
+{
+    try{
+       (<AS> <CONSTANT>  {acaoSemantica.a5();} constantes(g))?
+
+    }catch(ParseException e) {
+                     consumeUntil(g, e, "v2");
+                     errosSintaticos.add(new ErrorStruct("ERRO: constantes inválida (dentro escopo de variáveis)", e));
+              }
+}
+
+
+void constantes(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(IS);
+    RecoverySet f2 = new RecoverySet(ATRIBUI);
+    RecoverySet f3 = new RecoverySet(PONTO);
+ }
+{
+    try{
+        lista_de_identificadores_constantes(f1) <IS> tipo_constante(f2){acaoSemantica.a6();} <ATRIBUI> valor(f3) {acaoSemantica.a7(getToken(0).image);} <PONTO> constantes2(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "constantes");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Declaração de constantes formulada incorretamente", e));
+          }
+}
+
+void constantes2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+         (constantes(g))?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "constantes2");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Formulação de mais de uma constante inválida", e));
+          }
+}
+
+void variaveis(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(IS);
+    RecoverySet f2 = new RecoverySet(PONTO);
+ }
+{
+    try{
+        lista_de_identificadores_variaveis(f1) <IS> tipo(f2) {acaoSemantica.a6();}<PONTO> variaveis2(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "variaveis");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Declaração de variáveis formulada incorretamente", e));
+          }
+
+}
+
+void variaveis2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        (  variaveis(g) )?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "variaveis2");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Formulação de mais de uma variável inválida", e));
+          }
+}
+
+void lista_de_identificadores_variaveis(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        <IDENTIFICADOR>  {acaoSemantica.a10(getToken(0));}(<ABRECHAVES> <NUMERO_INTEIRO> {acaoSemantica.a12(getToken(0));} <FECHACHAVES>  )? {acaoSemantica.a11(getToken(0));}( <VIRGULA> lista_de_identificadores_variaveis(g) )?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "lista_de_identificadores_variaveis");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Lista de identificadores (variaveis) inválida", e));
+          }
+}
+
+/*void lista_de_identificadores_variaveis2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+   try{
+        ( <VIRGULA> lista_de_identificadores_variaveis(g) )?
+   }catch(ParseException e){
+                 consumeUntil(g, e, "lista_de_identificadores_variaveis2");
+                 errosSintaticos.add(new ErrorStruct("ERRO: Lista de identificadores (variaveis)", e));
+
+         }
+}*/
+
+/*void aux_constante_numerica(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+
+        (<ABRECHAVES> <NUMERO_INTEIRO>  <FECHACHAVES>  )?
+    }  catch(ParseException e)
+          {
+              consumeUntil(g, e, "aux_constante_numerica");
+              errosSintaticos.add(new ErrorStruct("ERRO: Declaração de constante numérica", e));
+          }
+}*/
+
+void tipo(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+       <INTEGER> {acaoSemantica.a13();}| <REAL> {acaoSemantica.a14();}| <STRING> {acaoSemantica.a15();}| <LOGIC> {acaoSemantica.a16(getToken(0));} | <IDENTIFICADOR> {acaoSemantica.a17(getToken(0));}
+
+    }catch(ParseException e)
+               {
+                   consumeUntil(g, e, "tipo");
+                   errosSintaticos.add(new ErrorStruct("ERRO: Tipo incompatível", e));
+               }
+}
+
+void tipo_constante(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+         <INTEGER> {acaoSemantica.a13();}| <REAL> {acaoSemantica.a14();}| <STRING> {acaoSemantica.a15();}| <LOGIC> {acaoSemantica.a16(getToken(0));} | <IDENTIFICADOR> {acaoSemantica.a17(getToken(0));}
+    }catch(ParseException e)
+                    {
+                        consumeUntil(g, e, "tipo_constante");
+                        errosSintaticos.add(new ErrorStruct("ERRO: Tipo incompatível para constante", e));
+                    }
+}
+
+void valor(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        <NUMERO_INTEIRO> | <NUMERO_REAL> | <CONSTANTE_LITERAL> | <TRUE> | <UNTRUE>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "valor");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Valor inválido", e));
+          }
+}
+
+/*
+void constante_logica(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+         <TRUE> | <UNTRUE>
+    } catch(ParseException e) {
+      consumeUntil(g, e, "constante_logica");
+      errosSintaticos.add(new ErrorStruct(" ERRO: Constante logica INVALIDA", e));
+    }
+}*/
+
+void comando_de_atribuicao(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(AS);
+    RecoverySet f2 = new RecoverySet(PONTO);
+ }
+{
+    try{
+        <DESIGNATE> <THIS> {acaoSemantica.a18();}lista_de_identificadores_variaveis(f1)  <AS> expressao(f2){acaoSemantica.a19();} <PONTO>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "comando_de_atribuicao");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Comando de atribuição inválido", e));
+          }
+}
+
+void expressao(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        expressao_aritmetica_ou_logica(g) expressao2(g)
+    }catch(ParseException e){
+              consumeUntil(g, e, "expressao");
+              errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+      }
+
+}
+
+void expressao2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+       ( <IGUAL> expressao_aritmetica_ou_logica(g) {acaoSemantica.a36();}| <DIFERENTE> expressao_aritmetica_ou_logica(g) {acaoSemantica.a37();} | <MENOR> expressao_aritmetica_ou_logica(g) {acaoSemantica.a38();}| <MAIOR> expressao_aritmetica_ou_logica(g) {acaoSemantica.a39();}| <MENORIGUAL> expressao_aritmetica_ou_logica(g) {acaoSemantica.a40();}| <MAIORIGUAL> expressao_aritmetica_ou_logica(g) {acaoSemantica.a41();})?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "expressao2");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+
+          }
+
+}
+
+void expressao_aritmetica_ou_logica(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+           termo2(g) menor_prioridade(g)
+        }catch(ParseException e){
+                      consumeUntil(g, e, "expressao_aritmetica_ou_logica");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void menor_prioridade(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+          ( <MAIS> termo2(g) menor_prioridade(g) {acaoSemantica.a42();} | <MENOS> termo2(g) menor_prioridade(g) {acaoSemantica.a43();}| <OU> termo2(g) menor_prioridade(g) {acaoSemantica.a44();} )?
+        }catch(ParseException e){
+                      consumeUntil(g, e, "menor_prioridade");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void termo2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+         termo1(g) media_prioridade(g)
+        }catch(ParseException e){
+                      consumeUntil(g, e, "termo2");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void media_prioridade(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+         (<VEZES>  termo1(g) media_prioridade(g) {acaoSemantica.a45();}| <DIVISAO>  termo1(g) media_prioridade(g) {acaoSemantica.a46();}| <RESTODIVISAO> termo1(g) media_prioridade(g) {acaoSemantica.a47();}| <RESTODIVISAOINTEIRA> termo1(g) media_prioridade(g) {acaoSemantica.a48();}| <E> termo1(g) media_prioridade(g) {acaoSemantica.a49();} )?
+        }catch(ParseException e){
+                      consumeUntil(g, e, "media_prioridade");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void termo1(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+            elemento(g) maior_prioridade(g)
+        }catch(ParseException e){
+                      consumeUntil(g, e, "termo1");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void maior_prioridade(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+       (<POTENCIA> elemento(g) maior_prioridade(g) {acaoSemantica.a50();})?
+    }catch(ParseException e){
+          consumeUntil(g, e, "maior_prioridade");
+          errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+    }
+}
+
+void elemento(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHAPARENTESES);
+    RecoverySet f2 = new RecoverySet(FECHAPARENTESES);
+ }
+{
+    try{
+          <IDENTIFICADOR> {acaoSemantica.a24(getToken(0));} indice(g){acaoSemantica.a51(getToken(0));}
+          | <NUMERO_REAL> {acaoSemantica.a27(Float.parseFloat(getToken(0).image));}
+          | <NUMERO_INTEIRO> {acaoSemantica.a26(Integer.parseInt(getToken(0).image));}
+          | <CONSTANTE_LITERAL> {acaoSemantica.a28(getToken(0).image);}
+          | <TRUE> {acaoSemantica.a52();}| <UNTRUE> {acaoSemantica.a53();}
+          | <ABREPARENTESES> expressao(f1) <FECHAPARENTESES>
+          | <NAO> <ABREPARENTESES> expressao(f2) <FECHAPARENTESES> {acaoSemantica.a54();}
+        }catch(ParseException e){
+                      consumeUntil(g, e, "elemento");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+void indice(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+       ( <ABRECHAVES>  <NUMERO_INTEIRO>{acaoSemantica.a12(getToken(0));} <FECHACHAVES> )?
+
+        }catch(ParseException e){
+                      consumeUntil(g, e, "indice");
+                      errosSintaticos.add(new ErrorStruct("ERRO: Expressão inválida", e));
+              }
+}
+
+/*
+void expressao_atribuicao(RecoverySet g): {}
+{
+    try{
+        expressao_aritmetica(g) | expressao_relacional(g) | expressao_logica(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "expressao_atribuicao");
+          }
+
+}
+
+void constantes_aux(RecoverySet g): {}
+{
+    try{
+        <NUMERO_REAL> | <NUMERO_INTEIRO> | <CONSTANTE_LITERAL> | constante_logica(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "constantes_aux");
+          }
+
+}
+
+void expressao_aritmetica(RecoverySet g): {}
+{
+    try{
+        termo_aritmetico(g) operadores_aritmeticos(g) termo_aritmetico(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "expressao_aritmetica");
+          }
+
+}
+
+void operadores_aritmeticos(): {}
+{
+    <MAIS> | <MENOS> | <VEZES> | <DIVISAO> | <POTENCIA> | <RESTODIVISAO> | <RESTODIVISAOINTEIRA>
+}
+
+void termo_aritmetico(RecoverySet g):
+{
+    RecoverySet f1 = new RecoverySet(FECHAPARENTESES);
+ }
+{
+    try{
+        <IDENTIFICADOR> | constantes_aux(g)  | <ABREPARENTESES> expressao_aritmetica(f1)  <FECHAPARENTESES>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "termo_aritmetico");
+          }
+
+}
+
+void expressao_relacional(RecoverySet g): {}
+{
+    try{
+        termo_relacional(g) operadores_relacionais(g) termo_relacional(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "expressao_relacional");
+          }
+}
+
+void operadores_relacionais(): {}
+{
+    <IGUAL> | <DIFERENTE> | <MAIOR> | <MENOR> | <MAIORIGUAL> | <MENORIGUAL>
+}
+
+void termo_relacional(RecoverySet g):
+{
+    RecoverySet f1 = new RecoverySet(FECHAPARENTESES);
+ }
+{
+    try{
+        <IDENTIFICADOR> | constantes_aux(g) | <ABREPARENTESES> expressao_relacional(f1) <FECHAPARENTESES>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "termo_relacional");
+          }
+}
+
+void expressao_logica(RecoverySet g):
+{
+    RecoverySet f1 = new RecoverySet(E);
+    RecoverySet f2 = new RecoverySet(OU);
+ }
+{
+   try{
+     LOOKAHEAD(3)constante_logica1(f1) <E> constante_logica1(g) | constante_logica1(f2) <OU> constante_logica1(g) | <NAO> constante_logica1(g)
+   }catch(ParseException e){
+                 consumeUntil(g, e, "expressao_logica");
+         }
+}
+
+void constante_logica1(RecoverySet g):
+{
+    RecoverySet f1 = new RecoverySet(FECHAPARENTESES);
+ }
+{
+    try{
+        <IDENTIFICADOR> | constantes_aux(g)  | <ABREPARENTESES> expressao_logica(f1) <FECHAPARENTESES>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "constante_logica1");
+          }
+}
+*/
+void comando_entrada_de_dados(RecoverySet g)throws ParseException, ParseEOFException:
+{
+    RecoverySet fechacol = new RecoverySet(FECHACOLCHETE);
+ }
+{
+    try{
+        <READ> <THIS> {acaoSemantica.a20();}<ABRECOLCHETE>  lista_de_identificadores_variaveis(fechacol)  <FECHACOLCHETE> <PONTO>
+    }catch(ParseException e){
+        consumeUntil(g, e, "comando_entrada_de_dados");
+        errosSintaticos.add(new ErrorStruct("ERRO: Comando de entrada de dados inválida", e));
+    }
+}
+
+void comando_saida_de_dados(RecoverySet g)throws ParseException, ParseEOFException:{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+}
+{
+    try{
+       <WRITE> (
+            <ALL> <THIS> {acaoSemantica.a21();} <ABRECOLCHETE> lista_de_identificadores_eou_constantes(f1) <FECHACOLCHETE> <PONTO>
+            | <THIS> {acaoSemantica.a22();} <ABRECOLCHETE> lista_de_identificadores_eou_constantes(f1) <FECHACOLCHETE> <PONTO>
+       )
+    }catch(ParseException e){
+      consumeUntil(g, e, "comando_saida_de_dados");
+      errosSintaticos.add(new ErrorStruct("ERRO: Comando de saída de dados inválida", e));
+    }
+}
+
+/*void comando_saida_de_dados2(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+      <ALL> <THIS> <ABRECOLCHETE> lista_de_identificadores_eou_constantes(g) <FECHACOLCHETE> <PONTO>  | <THIS> <ABRECOLCHETE> lista_de_identificadores_eou_constantes(g) <FECHACOLCHETE> <PONTO>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "comando_saida_de_dados2");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Comando de saída de dados", e));
+          }
+}*/
+
+void lista_de_identificadores_eou_constantes(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        <IDENTIFICADOR> {acaoSemantica.a24(getToken(0));} (<ABRECHAVES> <NUMERO_INTEIRO> {acaoSemantica.a12(getToken(0));} <FECHACHAVES>  )? {acaoSemantica.a25(getToken(0));}   {acaoSemantica.a23();} lista_de_identificadores_eou_constantes2(g)
+            | <NUMERO_INTEIRO> {acaoSemantica.a26(Integer.parseInt(getToken(0).image));} {acaoSemantica.a23();} lista_de_identificadores_eou_constantes2(g)
+            | <NUMERO_REAL> {acaoSemantica.a27(Float.parseFloat(getToken(0).image));} {acaoSemantica.a23();} lista_de_identificadores_eou_constantes2(g)
+            | <CONSTANTE_LITERAL> {acaoSemantica.a28(getToken(0).image);} {acaoSemantica.a23();} lista_de_identificadores_eou_constantes2(g)
+    }catch(ParseException e){
+                  consumeUntil(g, e, "lista_de_identificadores_eou_constantes");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Lista de identificadores e/ou constantes (comando de saída de dados) inválida", e));
+          }
+}
+
+void lista_de_identificadores_eou_constantes2(RecoverySet g)throws ParseException, ParseEOFException: {}
+{
+    try{
+        (<VIRGULA> lista_de_identificadores_eou_constantes(g) )?
+    }catch(ParseException e){
+                  consumeUntil(g, e, "lista_de_identificadores_eou_constantes2");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Listagem de  outros identificadores e/ou constantes (comando de saída de dados) inválida", e));
+          }
+}
+
+/*void constante(RecoverySet g)throws ParseException, ParseEOFException:{}
+{
+    try{
+        <NUMERO_INTEIRO> | <NUMERO_REAL> | <CONSTANTE_LITERAL>
+    } catch(ParseException e){
+                        consumeUntil(g, e, "constante");
+                        errosSintaticos.add(new ErrorStruct("ERRO: Constante INVALIDA", e));
+                }
+}*/
+
+void comando_de_selecao(RecoverySet g) throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = First.comando_selecao;
+    RecoverySet f2 = new RecoverySet(PONTO);
+}
+{
+    try{
+        <AVALIATE> <THIS> expressao(f1) ordem_selecao(f2) {acaoSemantica.a29();}
+    }catch(ParseException e){
+          consumeUntil(g, e, "comando_de_selecao");
+          errosSintaticos.add(new ErrorStruct("ERRO: Comando de seleção inválido", e));
+    }
+}
+
+void ordem_selecao(RecoverySet g) throws ParseException, ParseEOFException :
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+    RecoverySet f2 = new RecoverySet(PONTO);
+}
+{
+    try {
+          <TRUE> <RESULT> {acaoSemantica.a30();} <ABRECOLCHETE> lista_de_comandos(f1) <FECHACOLCHETE> ordem_true(f2) <PONTO>
+        | <UNTRUE> <RESULT> {acaoSemantica.a31();} <ABRECOLCHETE> lista_de_comandos(f1) <FECHACOLCHETE> ordem_untrue(f2) <PONTO>
+    }catch (ParseException e) {
+        consumeUntil(g, e, "resultado logico");
+        errosSintaticos.add(new ErrorStruct("Erro: Listagem do resultado logico inválido (true/untrue)", e));
+    }
+}
+
+void ordem_true(RecoverySet g) throws ParseException, ParseEOFException:
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+}
+{
+    try {
+        ( <UNTRUE> <RESULT> {acaoSemantica.a32();} <ABRECOLCHETE> lista_de_comandos(f1) <FECHACOLCHETE> )?
+
+    }catch (ParseException e){
+        consumeUntil(g, e, "true_result_cont");
+        errosSintaticos.add(new ErrorStruct("ERRO: '.' e/ou formulação untrue inválido", e));
+    }
+}
+
+void ordem_untrue(RecoverySet g) throws ParseException, ParseEOFException :
+{
+    RecoverySet f1 = new RecoverySet(FECHACOLCHETE);
+}
+{
+    try {
+        ( <TRUE> <RESULT> {acaoSemantica.a32();} <ABRECOLCHETE> lista_de_comandos(f1) <FECHACOLCHETE>  )?
+
+    }catch (ParseException e){
+        consumeUntil(g, e, "untrue_result_cont");
+        errosSintaticos.add(new ErrorStruct("ERRO: '.' e/ou formulação true inválida", e));
+    }
+}
+
+/*void ordem_selecao(RecoverySet g)throws ParseException, ParseEOFException:
+{ }
+{
+    try{
+        t(g) ordem_true(g) | u(g) ordem_untrue(g)
+    }catch(ParseException e){
+              consumeUntil(g, e, "ordem_selecao");
+              errosSintaticos.add(new ErrorStruct("ERRO: Ordem de seleção", e));
+    }
+}
+
+void ordem_untrue(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+        t(g) <PONTO> | <PONTO>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "ordem_untrue");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Ordem de seleção (untrue)", e));
+          }
+}
+
+void ordem_true(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+        u(g) <PONTO> | <PONTO>
+    }catch(ParseException e){
+        consumeUntil(g, e, "ordem_true");
+        errosSintaticos.add(new ErrorStruct("ERRO: Ordem de seleção (true)", e));
+
+    }
+}
+
+void t(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+        <TRUE> <RESULT> <ABRECOLCHETE> lista_de_comandos(g) <FECHACOLCHETE>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "t");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Declaração true INVALIDA", e));
+
+          }
+}
+
+void u(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+        <UNTRUE> <RESULT> <ABRECOLCHETE> lista_de_comandos(g) <FECHACOLCHETE>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "u");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Declaração untrue INVALIDA", e));
+          }
+}*/
+
+
+
+void comando_de_repeticao(RecoverySet g)throws ParseException, ParseEOFException:
+{}
+{
+    try{
+        <REPEAT> <THIS> {acaoSemantica.a33();} expressao(g) {acaoSemantica.a34();} <ABRECOLCHETE> lista_de_comandos(g) <FECHACOLCHETE> {acaoSemantica.a35();} <PONTO>
+    }catch(ParseException e){
+                  consumeUntil(g, e, "comando_de_repeticao");
+                  errosSintaticos.add(new ErrorStruct("ERRO: Comando de repetição inválido", e));
+          }
+}
+
